@@ -2,9 +2,9 @@
 
 ## 목표
 
-플레이어가 버블에 닿으면 라이프가 1 감소하고, 스테이지가 초기 상태로 재시작된다.
-충돌 직후 일정 시간 무적 상태가 부여되며, 무적 중 플레이어가 깜빡인다.
-라이프가 0이 되면 추가 충돌을 처리하지 않는다 (게임 오버 화면은 Phase 8에서 구현).
+플레이어가 버블에 닿으면 라이프가 1 감소하고, 일정 시간 무적 상태가 된다.
+충돌 이후에도 버블·작살·플레이어 위치는 초기화되지 않고 게임이 그대로 이어진다.
+라이프가 0이 되면 추가 충돌을 처리하지 않는다 (게임 오버 화면은 Phase 8).
 
 ---
 
@@ -15,7 +15,7 @@ src/
 ├── screens/
 │   └── GameScreen.tsx  # 플레이어-버블 충돌, 라이프·무적 상태 추가 (수정)
 └── styles/
-    └── GameScreen.css  # 무적 깜빡임 스타일 추가 (수정)
+    └── GameScreen.css  # 무적 깜빡임은 인라인 opacity로 처리 (변경 없음)
 ```
 
 ---
@@ -24,7 +24,6 @@ src/
 
 ```ts
 const INVINCIBLE_FRAMES = 120  // 충돌 후 무적 지속 (~2초 @ 60fps)
-const PLAYER_INIT_X     = (GAME_WIDTH - PLAYER_WIDTH) / 2
 ```
 
 ---
@@ -35,10 +34,10 @@ const PLAYER_INIT_X     = (GAME_WIDTH - PLAYER_WIDTH) / 2
 
 ```
 플레이어 사각형:
-  left  = playerX
-  right = playerX + PLAYER_WIDTH
-  top   = PLAYER_TOP_Y
-  bottom= PLAYER_TOP_Y + PLAYER_HEIGHT
+  left   = playerX
+  right  = playerX + PLAYER_WIDTH
+  top    = PLAYER_TOP_Y
+  bottom = PLAYER_TOP_Y + PLAYER_HEIGHT
 ```
 
 ```ts
@@ -65,41 +64,24 @@ function isPlayerHitByBubble(px: number, b: Bubble): boolean {
 
 ---
 
-## 미스 처리 순서
+## 미스 처리 — 게임 상태 유지
 
-충돌 감지 → 아래 순서대로 즉시 실행
-
-1. `livesRef.current -= 1` → `setLives`
-2. 버블 초기 상태 복원: `bubblesRef.current = [...INITIAL_BUBBLES]`
-3. 작살 제거: `harpoonRef.current = null`
-4. 플레이어 중앙 복귀: `playerXRef.current = PLAYER_INIT_X`
-5. 무적 부여: `invincibleRef.current = INVINCIBLE_FRAMES`
-
----
-
-## 게임 루프 통합
+충돌 시 라이프 감소와 무적 부여만 수행한다.
+버블·작살·플레이어 위치는 초기화하지 않는다.
 
 ```ts
-// 무적 프레임 차감
-if (invincibleRef.current > 0) {
-  invincibleRef.current -= 1
-  setInvincibleFrames(invincibleRef.current)
-}
-
-// 플레이어-버블 충돌 (무적 중이거나 라이프 없으면 스킵)
 if (invincibleRef.current === 0 && livesRef.current > 0) {
   const hit = bubblesRef.current.some(b => isPlayerHitByBubble(playerXRef.current, b))
   if (hit) {
     livesRef.current -= 1
     setLives(livesRef.current)
-    bubblesRef.current = [...INITIAL_BUBBLES]
-    setBubbles(bubblesRef.current)
-    harpoonRef.current = null
-    setHarpoon(null)
-    playerXRef.current = PLAYER_INIT_X
-    setPlayerX(PLAYER_INIT_X)
-    invincibleRef.current = INVINCIBLE_FRAMES
-    setInvincibleFrames(INVINCIBLE_FRAMES)
+    if (livesRef.current <= 0) {
+      gameStatusRef.current = 'gameover'
+      setGameStatus('gameover')
+    } else {
+      invincibleRef.current = INVINCIBLE_FRAMES
+      setInvincibleFrames(INVINCIBLE_FRAMES)
+    }
   }
 }
 ```
@@ -136,12 +118,9 @@ const isBlinking = invincibleFrames > 0 && Math.floor(invincibleFrames / 6) % 2 
 ```
 플레이어 ↔ 버블 충돌 감지 (무적 0, 라이프 > 0)
    ↓
-lives -= 1  /  버블·작살 초기화  /  플레이어 중앙 복귀
-invincibleRef = 120
-   ↓
-매 프레임 invincibleRef -= 1 (깜빡임 렌더링)
-   ↓
-invincibleRef = 0 → 일반 상태 복귀
+lives -= 1
+   ├─ lives > 0 → invincibleRef = 120, 게임 상태 그대로 유지
+   └─ lives = 0 → gameStatus = 'gameover' (Phase 8 처리)
 ```
 
 ---
@@ -149,5 +128,5 @@ invincibleRef = 0 → 일반 상태 복귀
 ## 구현 시 주의사항
 
 - 충돌 처리는 버블 이동·분열 판정 이후 마지막에 수행한다.
-- `lives === 0` 상태에서는 충돌 감지를 건너뛴다. 게임 오버 화면 전환은 Phase 8에서 추가한다.
-- 미스 직후 버블을 `INITIAL_BUBBLES`로 복원할 때 `[...INITIAL_BUBBLES]`로 새 배열을 만들어 React가 변경을 감지하도록 한다.
+- 충돌 후 버블·작살·플레이어를 초기화하지 않는다. 게임 상태를 유지해야 한다.
+- `lives === 0` 상태에서는 충돌 감지를 건너뛴다.

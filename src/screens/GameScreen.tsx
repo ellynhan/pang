@@ -5,6 +5,8 @@ type GameScreenProps = {
   onQuit: () => void
 }
 
+type GameStatus = 'playing' | 'stageclear' | 'gameover'
+
 type Harpoon = {
   x: number
   tipY: number
@@ -38,12 +40,18 @@ const HARPOON_WIDTH      = 4
 const FIXED_FRAMES       = 40
 const GRAVITY            = 0.25
 const INVINCIBLE_FRAMES  = 120
+const CLEAR_FRAMES       = 120
 
+// bounceVY 기준 최고점 (GRAVITY=0.25 기준):
+//   large  -15 → 450px 상승 → y=572-450=122 (화면 상단 근처)
+//   medium -13 → 338px 상승 → y=588-338=250
+//   small  -10 → 200px 상승 → y=600-200=400
+//   tiny    -7 →  98px 상승 → y=608-98=510
 const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounceVY: number }> = {
-  large:  { radius: 48, speedX: 1.5, bounceVY: -13   },
-  medium: { radius: 32, speedX: 2.0, bounceVY: -10   },
-  small:  { radius: 20, speedX: 2.5, bounceVY: -7.5  },
-  tiny:   { radius: 12, speedX: 3.0, bounceVY: -5.5  },
+  large:  { radius: 48, speedX: 1.5, bounceVY: -15  },
+  medium: { radius: 32, speedX: 2.0, bounceVY: -13  },
+  small:  { radius: 20, speedX: 2.5, bounceVY: -10  },
+  tiny:   { radius: 12, speedX: 3.0, bounceVY: -7   },
 }
 
 const NEXT_SIZE: Partial<Record<BubbleSize, BubbleSize>> = {
@@ -115,26 +123,36 @@ function isPlayerHitByBubble(px: number, b: Bubble): boolean {
 }
 
 function GameScreen({ onQuit }: GameScreenProps) {
-  const [playerX, setPlayerX]               = useState(PLAYER_INIT_X)
-  const [harpoon, setHarpoon]               = useState<Harpoon | null>(null)
-  const [bubbles, setBubbles]               = useState<Bubble[]>(INITIAL_BUBBLES)
-  const [lives, setLives]                   = useState(INITIAL_LIVES)
+  const [playerX, setPlayerX]                   = useState(PLAYER_INIT_X)
+  const [harpoon, setHarpoon]                   = useState<Harpoon | null>(null)
+  const [bubbles, setBubbles]                   = useState<Bubble[]>(INITIAL_BUBBLES)
+  const [lives, setLives]                       = useState(INITIAL_LIVES)
   const [invincibleFrames, setInvincibleFrames] = useState(0)
+  const [gameStatus, setGameStatus]             = useState<GameStatus>('playing')
 
-  const playerXRef     = useRef(PLAYER_INIT_X)
-  const harpoonRef     = useRef<Harpoon | null>(null)
-  const bubblesRef     = useRef<Bubble[]>(INITIAL_BUBBLES)
-  const livesRef       = useRef(INITIAL_LIVES)
-  const invincibleRef  = useRef(0)
-  const keysRef        = useRef<Set<string>>(new Set())
-  const nextIdRef      = useRef(100)
+  const playerXRef    = useRef(PLAYER_INIT_X)
+  const harpoonRef    = useRef<Harpoon | null>(null)
+  const bubblesRef    = useRef<Bubble[]>(INITIAL_BUBBLES)
+  const livesRef      = useRef(INITIAL_LIVES)
+  const invincibleRef = useRef(0)
+  const gameStatusRef = useRef<GameStatus>('playing')
+  const clearTimerRef = useRef(0)
+  const keysRef       = useRef<Set<string>>(new Set())
+  const nextIdRef     = useRef(100)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === ' ') e.preventDefault()
+
+      if (e.key === 'Enter' && gameStatusRef.current === 'gameover') {
+        onQuit()
+        return
+      }
+      if (e.key === 'Escape') { onQuit(); return }
+
       keysRef.current.add(e.key)
-      if (e.key === 'Escape') onQuit()
-      if (e.key === ' ' && harpoonRef.current === null) {
+
+      if (e.key === ' ' && harpoonRef.current === null && gameStatusRef.current === 'playing') {
         const h: Harpoon = {
           x: playerXRef.current + PLAYER_WIDTH / 2,
           tipY: PLAYER_TOP_Y,
@@ -160,6 +178,12 @@ function GameScreen({ onQuit }: GameScreenProps) {
     let rafId: number
 
     function loop() {
+      // 게임 오버: 모든 로직 정지
+      if (gameStatusRef.current === 'gameover') {
+        rafId = requestAnimationFrame(loop)
+        return
+      }
+
       // 플레이어 이동
       let x = playerXRef.current
       if (keysRef.current.has('ArrowLeft'))  x -= PLAYER_SPEED
@@ -181,6 +205,30 @@ function GameScreen({ onQuit }: GameScreenProps) {
       const nextBubbles = bubblesRef.current.map(updateBubble)
       bubblesRef.current = nextBubbles
       setBubbles(nextBubbles)
+
+      // 스테이지 클리어 처리 (playing 중에만 판정)
+      if (gameStatusRef.current === 'playing' && bubblesRef.current.length === 0) {
+        gameStatusRef.current = 'stageclear'
+        setGameStatus('stageclear')
+        clearTimerRef.current = CLEAR_FRAMES
+      }
+
+      // 클리어 타이머 (stageclear 중)
+      if (gameStatusRef.current === 'stageclear') {
+        clearTimerRef.current -= 1
+        if (clearTimerRef.current <= 0) {
+          bubblesRef.current = [...INITIAL_BUBBLES]
+          setBubbles(bubblesRef.current)
+          harpoonRef.current = null
+          setHarpoon(null)
+          playerXRef.current = PLAYER_INIT_X
+          setPlayerX(PLAYER_INIT_X)
+          gameStatusRef.current = 'playing'
+          setGameStatus('playing')
+        }
+        rafId = requestAnimationFrame(loop)
+        return
+      }
 
       // 작살-버블 충돌 판정
       if (harpoonRef.current !== null) {
@@ -210,14 +258,13 @@ function GameScreen({ onQuit }: GameScreenProps) {
         if (hit) {
           livesRef.current -= 1
           setLives(livesRef.current)
-          bubblesRef.current = [...INITIAL_BUBBLES]
-          setBubbles(bubblesRef.current)
-          harpoonRef.current = null
-          setHarpoon(null)
-          playerXRef.current = PLAYER_INIT_X
-          setPlayerX(PLAYER_INIT_X)
-          invincibleRef.current = INVINCIBLE_FRAMES
-          setInvincibleFrames(INVINCIBLE_FRAMES)
+          if (livesRef.current <= 0) {
+            gameStatusRef.current = 'gameover'
+            setGameStatus('gameover')
+          } else {
+            invincibleRef.current = INVINCIBLE_FRAMES
+            setInvincibleFrames(INVINCIBLE_FRAMES)
+          }
         }
       }
 
@@ -274,6 +321,19 @@ function GameScreen({ onQuit }: GameScreenProps) {
       />
 
       <div className="ground" />
+
+      {gameStatus === 'stageclear' && (
+        <div className="overlay overlay--clear">
+          <p className="overlay__title">STAGE CLEAR!</p>
+        </div>
+      )}
+
+      {gameStatus === 'gameover' && (
+        <div className="overlay overlay--gameover">
+          <p className="overlay__title">GAME OVER</p>
+          <p className="overlay__hint">PRESS ENTER</p>
+        </div>
+      )}
 
       <span className="esc-hint">ESC: 타이틀</span>
     </div>
