@@ -27,9 +27,35 @@ npm run preview
 npm run lint
 ```
 
+## 기획 문서
+
+| 파일 | 내용 |
+|------|------|
+| [docs/PRD.md](docs/PRD.md) | 게임 전체 개요 및 핵심 게임플레이 |
+| [docs/FEATURES/main.md](docs/FEATURES/main.md) | 메인 화면 구성 및 화면 전환 흐름 |
+| [docs/FEATURES/game_rule.md](docs/FEATURES/game_rule.md) | 버블 시스템, 아이템, 점수 등 상세 게임 룰 |
+| [docs/FEATURES/mission1.md](docs/FEATURES/mission1.md) | Mission 1 스테이지별 난이도 및 구성 |
+
+## 코드 구조
+
+```
+src/
+├── main.tsx     # React 앱 진입점 (createRoot)
+├── App.tsx      # 루트 컴포넌트
+└── index.css    # 글로벌 스타일 (CSS reset 포함)
+```
+
+`index.html` → `src/main.tsx` → `src/App.tsx` 순서로 렌더링됩니다.
+
 ## TypeScript 설정 주요 옵션
 
 - `strict: true` — 엄격 타입 검사 활성화
 - `noUnusedLocals`, `noUnusedParameters` — 미사용 변수·파라미터 오류 처리
 - `noUncheckedSideEffectImports` — 사이드 이펙트 임포트 검사
 - Target: `ES2020`, JSX transform: `react-jsx`
+
+## 테스트 방법
+
+현재 테스트 프레임워크(Jest, Vitest 등)가 설정되어 있지 않습니다. 기능 검증은 `npm run dev`로 개발 서버를 실행한 뒤 브라우저에서 직접 확인합니다.
+
+테스트 도구를 추가하려면 Vitest 사용을 권장합니다(Vite 기반 프로젝트와의 호환성 최적).
