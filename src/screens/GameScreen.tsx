@@ -12,6 +12,17 @@ type Harpoon = {
   fixedFrames: number
 }
 
+type BubbleSize = 'large' | 'medium' | 'small' | 'tiny'
+
+type Bubble = {
+  id: number
+  size: BubbleSize
+  x: number
+  y: number
+  vx: number
+  vy: number
+}
+
 const INITIAL_SCORE  = 0
 const INITIAL_LIVES  = 3
 const GAME_WIDTH     = 480
@@ -21,10 +32,23 @@ const GROUND_HEIGHT  = 20
 const PLAYER_WIDTH   = 30
 const PLAYER_HEIGHT  = 50
 const PLAYER_SPEED   = 3
-const PLAYER_TOP_Y   = GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT  // 570
+const PLAYER_TOP_Y   = GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT
 const HARPOON_SPEED  = 10
 const HARPOON_WIDTH  = 4
 const FIXED_FRAMES   = 40
+const GRAVITY        = 0.25
+
+const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounceVY: number }> = {
+  large:  { radius: 48, speedX: 1.5, bounceVY: -13   },
+  medium: { radius: 32, speedX: 2.0, bounceVY: -10   },
+  small:  { radius: 20, speedX: 2.5, bounceVY: -7.5  },
+  tiny:   { radius: 12, speedX: 3.0, bounceVY: -5.5  },
+}
+
+const INITIAL_BUBBLES: Bubble[] = [
+  { id: 1, size: 'large', x: 120, y: 100, vx:  1.5, vy: 2 },
+  { id: 2, size: 'large', x: 360, y: 100, vx: -1.5, vy: 2 },
+]
 
 function updateHarpoon(h: Harpoon): Harpoon | null {
   if (h.fixed) {
@@ -38,12 +62,32 @@ function updateHarpoon(h: Harpoon): Harpoon | null {
   return { ...h, tipY: nextTipY }
 }
 
+function updateBubble(b: Bubble): Bubble {
+  const { radius, speedX, bounceVY } = BUBBLE_CONFIG[b.size]
+  const floorY = GAME_HEIGHT - GROUND_HEIGHT - radius
+  const ceilY  = HUD_HEIGHT  + radius
+
+  let vy = b.vy + GRAVITY
+  let y  = b.y  + vy
+  let x  = b.x  + b.vx
+  let vx = b.vx
+
+  if (y >= floorY) { y = floorY; vy = bounceVY }
+  if (y <= ceilY)  { y = ceilY;  vy = Math.abs(vy) }
+  if (x - radius <= 0)          { x = radius;              vx =  speedX }
+  if (x + radius >= GAME_WIDTH) { x = GAME_WIDTH - radius; vx = -speedX }
+
+  return { ...b, x, y, vx, vy }
+}
+
 function GameScreen({ onQuit }: GameScreenProps) {
-  const [playerX, setPlayerX] = useState((GAME_WIDTH - PLAYER_WIDTH) / 2)
-  const [harpoon, setHarpoon] = useState<Harpoon | null>(null)
+  const [playerX, setPlayerX]   = useState((GAME_WIDTH - PLAYER_WIDTH) / 2)
+  const [harpoon, setHarpoon]   = useState<Harpoon | null>(null)
+  const [bubbles, setBubbles]   = useState<Bubble[]>(INITIAL_BUBBLES)
 
   const playerXRef  = useRef((GAME_WIDTH - PLAYER_WIDTH) / 2)
   const harpoonRef  = useRef<Harpoon | null>(null)
+  const bubblesRef  = useRef<Bubble[]>(INITIAL_BUBBLES)
   const keysRef     = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -94,6 +138,11 @@ function GameScreen({ onQuit }: GameScreenProps) {
         setHarpoon(next)
       }
 
+      // 버블 업데이트
+      const nextBubbles = bubblesRef.current.map(updateBubble)
+      bubblesRef.current = nextBubbles
+      setBubbles(nextBubbles)
+
       rafId = requestAnimationFrame(loop)
     }
 
@@ -112,12 +161,28 @@ function GameScreen({ onQuit }: GameScreenProps) {
         </div>
       </div>
 
+      {bubbles.map(b => {
+        const { radius } = BUBBLE_CONFIG[b.size]
+        return (
+          <div
+            key={b.id}
+            className={`bubble bubble--${b.size}`}
+            style={{
+              left:   b.x - radius,
+              top:    b.y - radius,
+              width:  radius * 2,
+              height: radius * 2,
+            }}
+          />
+        )
+      })}
+
       {harpoon && (
         <div
           className={`harpoon${harpoon.fixed ? ' harpoon--fixed' : ''}`}
           style={{
-            left: harpoon.x - HARPOON_WIDTH / 2,
-            top: harpoon.tipY,
+            left:   harpoon.x - HARPOON_WIDTH / 2,
+            top:    harpoon.tipY,
             height: PLAYER_TOP_Y - harpoon.tipY,
           }}
         />

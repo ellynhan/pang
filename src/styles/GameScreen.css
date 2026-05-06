@@ -67,6 +67,31 @@
   transform: translateX(-50%);
 }
 
+/* 버블 */
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  box-sizing: border-box;
+  z-index: 4;
+}
+
+.bubble--large {
+  background: radial-gradient(circle at 35% 35%, #88bbff, #2255cc);
+}
+
+.bubble--medium {
+  background: radial-gradient(circle at 35% 35%, #88ffcc, #22aa66);
+}
+
+.bubble--small {
+  background: radial-gradient(circle at 35% 35%, #ffcc88, #cc7722);
+}
+
+.bubble--tiny {
+  background: radial-gradient(circle at 35% 35%, #ff8888, #cc2222);
+}
+
 /* 작살 */
 .harpoon {
   position: absolute;

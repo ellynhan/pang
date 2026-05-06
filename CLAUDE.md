@@ -48,6 +48,7 @@ npm run lint
 | Phase 2 | [docs/design/phase2.md](docs/design/phase2.md) | 게임 화면 진입, 플레이어 표시, HUD 기초 설계 |
 | Phase 3 | [docs/design/phase3.md](docs/design/phase3.md) | 플레이어 좌우 이동, 벽 충돌, 게임 루프 설계 |
 | Phase 4 | [docs/design/phase4.md](docs/design/phase4.md) | 작살 발사, 천장 고정, 소멸 타이머 설계 |
+| Phase 5 | [docs/design/phase5.md](docs/design/phase5.md) | 버블 물리(중력·반사), 크기별 설정, 게임 루프 통합 |
 
 ## 코드 구조
 
