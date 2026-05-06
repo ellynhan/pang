@@ -45,6 +45,12 @@ const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounce
   tiny:   { radius: 12, speedX: 3.0, bounceVY: -5.5  },
 }
 
+const NEXT_SIZE: Partial<Record<BubbleSize, BubbleSize>> = {
+  large:  'medium',
+  medium: 'small',
+  small:  'tiny',
+}
+
 const INITIAL_BUBBLES: Bubble[] = [
   { id: 1, size: 'large', x: 120, y: 100, vx:  1.5, vy: 2 },
   { id: 2, size: 'large', x: 360, y: 100, vx: -1.5, vy: 2 },
@@ -80,15 +86,34 @@ function updateBubble(b: Bubble): Bubble {
   return { ...b, x, y, vx, vy }
 }
 
-function GameScreen({ onQuit }: GameScreenProps) {
-  const [playerX, setPlayerX]   = useState((GAME_WIDTH - PLAYER_WIDTH) / 2)
-  const [harpoon, setHarpoon]   = useState<Harpoon | null>(null)
-  const [bubbles, setBubbles]   = useState<Bubble[]>(INITIAL_BUBBLES)
+function isHarpoonHittingBubble(h: Harpoon, b: Bubble): boolean {
+  const { radius } = BUBBLE_CONFIG[b.size]
+  const cy = Math.max(h.tipY, Math.min(PLAYER_TOP_Y, b.y))
+  const dx = h.x - b.x
+  const dy = cy  - b.y
+  return dx * dx + dy * dy < radius * radius
+}
 
-  const playerXRef  = useRef((GAME_WIDTH - PLAYER_WIDTH) / 2)
-  const harpoonRef  = useRef<Harpoon | null>(null)
-  const bubblesRef  = useRef<Bubble[]>(INITIAL_BUBBLES)
-  const keysRef     = useRef<Set<string>>(new Set())
+function splitBubble(hit: Bubble, nextId: () => number): Bubble[] {
+  const nextSize = NEXT_SIZE[hit.size]
+  if (!nextSize) return []
+  const { speedX, bounceVY } = BUBBLE_CONFIG[nextSize]
+  return [
+    { id: nextId(), size: nextSize, x: hit.x, y: hit.y, vx: -speedX, vy: bounceVY },
+    { id: nextId(), size: nextSize, x: hit.x, y: hit.y, vx:  speedX, vy: bounceVY },
+  ]
+}
+
+function GameScreen({ onQuit }: GameScreenProps) {
+  const [playerX, setPlayerX] = useState((GAME_WIDTH - PLAYER_WIDTH) / 2)
+  const [harpoon, setHarpoon] = useState<Harpoon | null>(null)
+  const [bubbles, setBubbles] = useState<Bubble[]>(INITIAL_BUBBLES)
+
+  const playerXRef = useRef((GAME_WIDTH - PLAYER_WIDTH) / 2)
+  const harpoonRef = useRef<Harpoon | null>(null)
+  const bubblesRef = useRef<Bubble[]>(INITIAL_BUBBLES)
+  const keysRef    = useRef<Set<string>>(new Set())
+  const nextIdRef  = useRef(100)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -142,6 +167,22 @@ function GameScreen({ onQuit }: GameScreenProps) {
       const nextBubbles = bubblesRef.current.map(updateBubble)
       bubblesRef.current = nextBubbles
       setBubbles(nextBubbles)
+
+      // 작살-버블 충돌 판정
+      if (harpoonRef.current !== null) {
+        const hitIndex = bubblesRef.current.findIndex(b =>
+          isHarpoonHittingBubble(harpoonRef.current!, b)
+        )
+        if (hitIndex !== -1) {
+          const hit     = bubblesRef.current[hitIndex]
+          const rest    = bubblesRef.current.filter((_, i) => i !== hitIndex)
+          const spawned = splitBubble(hit, () => nextIdRef.current++)
+          bubblesRef.current = [...rest, ...spawned]
+          setBubbles(bubblesRef.current)
+          harpoonRef.current = null
+          setHarpoon(null)
+        }
+      }
 
       rafId = requestAnimationFrame(loop)
     }
