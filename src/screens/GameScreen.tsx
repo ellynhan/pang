@@ -23,20 +23,21 @@ type Bubble = {
   vy: number
 }
 
-const INITIAL_SCORE  = 0
-const INITIAL_LIVES  = 3
-const GAME_WIDTH     = 480
-const GAME_HEIGHT    = 640
-const HUD_HEIGHT     = 40
-const GROUND_HEIGHT  = 20
-const PLAYER_WIDTH   = 30
-const PLAYER_HEIGHT  = 50
-const PLAYER_SPEED   = 3
-const PLAYER_TOP_Y   = GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT
-const HARPOON_SPEED  = 10
-const HARPOON_WIDTH  = 4
-const FIXED_FRAMES   = 40
-const GRAVITY        = 0.25
+const INITIAL_LIVES      = 3
+const GAME_WIDTH         = 480
+const GAME_HEIGHT        = 640
+const HUD_HEIGHT         = 40
+const GROUND_HEIGHT      = 20
+const PLAYER_WIDTH       = 30
+const PLAYER_HEIGHT      = 50
+const PLAYER_SPEED       = 3
+const PLAYER_TOP_Y       = GAME_HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT
+const PLAYER_INIT_X      = (GAME_WIDTH - PLAYER_WIDTH) / 2
+const HARPOON_SPEED      = 10
+const HARPOON_WIDTH      = 4
+const FIXED_FRAMES       = 40
+const GRAVITY            = 0.25
+const INVINCIBLE_FRAMES  = 120
 
 const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounceVY: number }> = {
   large:  { radius: 48, speedX: 1.5, bounceVY: -13   },
@@ -104,16 +105,29 @@ function splitBubble(hit: Bubble, nextId: () => number): Bubble[] {
   ]
 }
 
-function GameScreen({ onQuit }: GameScreenProps) {
-  const [playerX, setPlayerX] = useState((GAME_WIDTH - PLAYER_WIDTH) / 2)
-  const [harpoon, setHarpoon] = useState<Harpoon | null>(null)
-  const [bubbles, setBubbles] = useState<Bubble[]>(INITIAL_BUBBLES)
+function isPlayerHitByBubble(px: number, b: Bubble): boolean {
+  const { radius } = BUBBLE_CONFIG[b.size]
+  const cx = Math.max(px, Math.min(px + PLAYER_WIDTH, b.x))
+  const cy = Math.max(PLAYER_TOP_Y, Math.min(PLAYER_TOP_Y + PLAYER_HEIGHT, b.y))
+  const dx = cx - b.x
+  const dy = cy - b.y
+  return dx * dx + dy * dy < radius * radius
+}
 
-  const playerXRef = useRef((GAME_WIDTH - PLAYER_WIDTH) / 2)
-  const harpoonRef = useRef<Harpoon | null>(null)
-  const bubblesRef = useRef<Bubble[]>(INITIAL_BUBBLES)
-  const keysRef    = useRef<Set<string>>(new Set())
-  const nextIdRef  = useRef(100)
+function GameScreen({ onQuit }: GameScreenProps) {
+  const [playerX, setPlayerX]               = useState(PLAYER_INIT_X)
+  const [harpoon, setHarpoon]               = useState<Harpoon | null>(null)
+  const [bubbles, setBubbles]               = useState<Bubble[]>(INITIAL_BUBBLES)
+  const [lives, setLives]                   = useState(INITIAL_LIVES)
+  const [invincibleFrames, setInvincibleFrames] = useState(0)
+
+  const playerXRef     = useRef(PLAYER_INIT_X)
+  const harpoonRef     = useRef<Harpoon | null>(null)
+  const bubblesRef     = useRef<Bubble[]>(INITIAL_BUBBLES)
+  const livesRef       = useRef(INITIAL_LIVES)
+  const invincibleRef  = useRef(0)
+  const keysRef        = useRef<Set<string>>(new Set())
+  const nextIdRef      = useRef(100)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -184,6 +198,29 @@ function GameScreen({ onQuit }: GameScreenProps) {
         }
       }
 
+      // 무적 프레임 차감
+      if (invincibleRef.current > 0) {
+        invincibleRef.current -= 1
+        setInvincibleFrames(invincibleRef.current)
+      }
+
+      // 플레이어-버블 충돌 판정
+      if (invincibleRef.current === 0 && livesRef.current > 0) {
+        const hit = bubblesRef.current.some(b => isPlayerHitByBubble(playerXRef.current, b))
+        if (hit) {
+          livesRef.current -= 1
+          setLives(livesRef.current)
+          bubblesRef.current = [...INITIAL_BUBBLES]
+          setBubbles(bubblesRef.current)
+          harpoonRef.current = null
+          setHarpoon(null)
+          playerXRef.current = PLAYER_INIT_X
+          setPlayerX(PLAYER_INIT_X)
+          invincibleRef.current = INVINCIBLE_FRAMES
+          setInvincibleFrames(INVINCIBLE_FRAMES)
+        }
+      }
+
       rafId = requestAnimationFrame(loop)
     }
 
@@ -191,12 +228,14 @@ function GameScreen({ onQuit }: GameScreenProps) {
     return () => cancelAnimationFrame(rafId)
   }, [])
 
+  const isBlinking = invincibleFrames > 0 && Math.floor(invincibleFrames / 6) % 2 === 0
+
   return (
     <div className="game-screen-inner">
       <div className="hud">
-        <span>SCORE {String(INITIAL_SCORE).padStart(5, '0')}</span>
+        <span>SCORE 00000</span>
         <div className="hud__lives">
-          {Array.from({ length: INITIAL_LIVES }, (_, i) => (
+          {Array.from({ length: lives }, (_, i) => (
             <span key={i}>♥</span>
           ))}
         </div>
@@ -229,7 +268,10 @@ function GameScreen({ onQuit }: GameScreenProps) {
         />
       )}
 
-      <div className="player" style={{ left: playerX }} />
+      <div
+        className="player"
+        style={{ left: playerX, opacity: isBlinking ? 0.25 : 1 }}
+      />
 
       <div className="ground" />
 

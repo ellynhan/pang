@@ -50,6 +50,7 @@ npm run lint
 | Phase 4 | [docs/design/phase4.md](docs/design/phase4.md) | 작살 발사, 천장 고정, 소멸 타이머 설계 |
 | Phase 5 | [docs/design/phase5.md](docs/design/phase5.md) | 버블 물리(중력·반사), 크기별 설정, 게임 루프 통합 |
 | Phase 6 | [docs/design/phase6.md](docs/design/phase6.md) | 작살-버블 충돌 감지, 버블 분열 및 소멸 로직 |
+| Phase 7 | [docs/design/phase7.md](docs/design/phase7.md) | 플레이어-버블 충돌, 라이프 감소, 무적·깜빡임 처리 |
 
 ## 코드 구조
 
