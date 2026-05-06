@@ -26,6 +26,17 @@ type Bubble = {
   vy: number
 }
 
+type Platform = {
+  x: number
+  y: number
+  width: number
+}
+
+type StageConfig = {
+  bubbles: Omit<Bubble, 'id'>[]
+  platforms: Platform[]
+}
+
 const INITIAL_LIVES      = 3
 const GAME_WIDTH         = 480
 const GAME_HEIGHT        = 640
@@ -43,11 +54,6 @@ const GRAVITY            = 0.25
 const INVINCIBLE_FRAMES  = 120
 const CLEAR_FRAMES       = 120
 
-// bounceVY 기준 최고점 (GRAVITY=0.25 기준):
-//   large  -15 → 450px 상승 → y=572-450=122 (화면 상단 근처)
-//   medium -13 → 338px 상승 → y=588-338=250
-//   small  -10 → 200px 상승 → y=600-200=400
-//   tiny    -7 →  98px 상승 → y=608-98=510
 const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounceVY: number }> = {
   large:  { radius: 48, speedX: 1.5, bounceVY: -15  },
   medium: { radius: 32, speedX: 2.0, bounceVY: -13  },
@@ -68,10 +74,39 @@ const NEXT_SIZE: Partial<Record<BubbleSize, BubbleSize>> = {
   small:  'tiny',
 }
 
-const INITIAL_BUBBLES: Bubble[] = [
-  { id: 1, size: 'large', x: 120, y: 100, vx:  1.5, vy: 2 },
-  { id: 2, size: 'large', x: 360, y: 100, vx: -1.5, vy: 2 },
+const STAGES: StageConfig[] = [
+  {
+    bubbles: [
+      { size: 'large', x: 120, y: 100, vx:  1.5, vy: 2 },
+      { size: 'large', x: 360, y: 100, vx: -1.5, vy: 2 },
+    ],
+    platforms: [],
+  },
+  {
+    bubbles: [
+      { size: 'large',  x: 240, y: 100, vx:  1.5, vy: 2 },
+      { size: 'medium', x: 100, y: 150, vx: -2.0, vy: 2 },
+      { size: 'medium', x: 380, y: 150, vx:  2.0, vy: 2 },
+    ],
+    platforms: [{ x: 160, y: 430, width: 160 }],
+  },
+  {
+    bubbles: [
+      { size: 'medium', x: 100, y: 100, vx:  2.0, vy: 2 },
+      { size: 'medium', x: 380, y: 100, vx: -2.0, vy: 2 },
+      { size: 'small',  x: 200, y: 200, vx:  2.5, vy: 2 },
+      { size: 'small',  x: 280, y: 200, vx: -2.5, vy: 2 },
+    ],
+    platforms: [
+      { x:  60, y: 400, width: 120 },
+      { x: 300, y: 460, width: 120 },
+    ],
+  },
 ]
+
+function makeBubbles(configs: Omit<Bubble, 'id'>[], idRef: { current: number }): Bubble[] {
+  return configs.map(b => ({ ...b, id: idRef.current++ }))
+}
 
 function updateHarpoon(h: Harpoon): Harpoon | null {
   if (h.fixed) {
@@ -85,7 +120,7 @@ function updateHarpoon(h: Harpoon): Harpoon | null {
   return { ...h, tipY: nextTipY }
 }
 
-function updateBubble(b: Bubble): Bubble {
+function updateBubble(b: Bubble, platforms: Platform[]): Bubble {
   const { radius, speedX, bounceVY } = BUBBLE_CONFIG[b.size]
   const floorY = GAME_HEIGHT - GROUND_HEIGHT - radius
   const ceilY  = HUD_HEIGHT  + radius
@@ -96,7 +131,22 @@ function updateBubble(b: Bubble): Bubble {
   let vx = b.vx
 
   if (y >= floorY) { y = floorY; vy = bounceVY }
-  if (y <= ceilY)  { y = ceilY;  vy = Math.abs(vy) }
+
+  // 발판 충돌 (위에서 내려올 때만)
+  for (const p of platforms) {
+    if (
+      b.y + radius < p.y  &&
+      y   + radius >= p.y &&
+      x   + radius >  p.x &&
+      x   - radius <  p.x + p.width
+    ) {
+      y = p.y - radius
+      vy = bounceVY
+      break
+    }
+  }
+
+  if (y <= ceilY)  { y = ceilY; vy = Math.abs(vy) }
   if (x - radius <= 0)          { x = radius;              vx =  speedX }
   if (x + radius >= GAME_WIDTH) { x = GAME_WIDTH - radius; vx = -speedX }
 
@@ -130,25 +180,31 @@ function isPlayerHitByBubble(px: number, b: Bubble): boolean {
   return dx * dx + dy * dy < radius * radius
 }
 
+const idCounter = { current: 100 }
+
 function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
   const [playerX, setPlayerX]                   = useState(PLAYER_INIT_X)
   const [harpoon, setHarpoon]                   = useState<Harpoon | null>(null)
-  const [bubbles, setBubbles]                   = useState<Bubble[]>(INITIAL_BUBBLES)
+  const [bubbles, setBubbles]                   = useState<Bubble[]>(() => makeBubbles(STAGES[0].bubbles, idCounter))
+  const [platforms, setPlatforms]               = useState<Platform[]>(STAGES[0].platforms)
   const [lives, setLives]                       = useState(INITIAL_LIVES)
   const [score, setScore]                       = useState(0)
+  const [stageNumber, setStageNumber]           = useState(1)
   const [invincibleFrames, setInvincibleFrames] = useState(0)
   const [gameStatus, setGameStatus]             = useState<GameStatus>('playing')
 
   const playerXRef    = useRef(PLAYER_INIT_X)
   const harpoonRef    = useRef<Harpoon | null>(null)
-  const bubblesRef    = useRef<Bubble[]>(INITIAL_BUBBLES)
+  const bubblesRef    = useRef<Bubble[]>(makeBubbles(STAGES[0].bubbles, idCounter))
+  const platformsRef  = useRef<Platform[]>(STAGES[0].platforms)
   const livesRef      = useRef(INITIAL_LIVES)
   const scoreRef      = useRef(0)
+  const stageRef      = useRef(1)
   const invincibleRef = useRef(0)
   const gameStatusRef = useRef<GameStatus>('playing')
   const clearTimerRef = useRef(0)
   const keysRef       = useRef<Set<string>>(new Set())
-  const nextIdRef     = useRef(100)
+  const nextIdRef     = useRef(200)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -188,7 +244,6 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
     let rafId: number
 
     function loop() {
-      // 게임 오버: 모든 로직 정지
       if (gameStatusRef.current === 'gameover') {
         rafId = requestAnimationFrame(loop)
         return
@@ -211,12 +266,12 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
         setHarpoon(next)
       }
 
-      // 버블 업데이트
-      const nextBubbles = bubblesRef.current.map(updateBubble)
+      // 버블 업데이트 (발판 포함)
+      const nextBubbles = bubblesRef.current.map(b => updateBubble(b, platformsRef.current))
       bubblesRef.current = nextBubbles
       setBubbles(nextBubbles)
 
-      // 스테이지 클리어 처리 (playing 중에만 판정)
+      // 스테이지 클리어
       if (gameStatusRef.current === 'playing' && bubblesRef.current.length === 0) {
         gameStatusRef.current = 'stageclear'
         setGameStatus('stageclear')
@@ -224,12 +279,18 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
         onScoreUpdate(scoreRef.current)
       }
 
-      // 클리어 타이머 (stageclear 중)
+      // 클리어 타이머
       if (gameStatusRef.current === 'stageclear') {
         clearTimerRef.current -= 1
         if (clearTimerRef.current <= 0) {
-          bubblesRef.current = [...INITIAL_BUBBLES]
+          const nextStage = (stageRef.current % STAGES.length) + 1
+          stageRef.current = nextStage
+          setStageNumber(nextStage)
+          const cfg = STAGES[nextStage - 1]
+          bubblesRef.current = makeBubbles(cfg.bubbles, nextIdRef)
+          platformsRef.current = cfg.platforms
           setBubbles(bubblesRef.current)
+          setPlatforms(platformsRef.current)
           harpoonRef.current = null
           setHarpoon(null)
           playerXRef.current = PLAYER_INIT_X
@@ -241,7 +302,7 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
         return
       }
 
-      // 작살-버블 충돌 판정
+      // 작살-버블 충돌
       if (harpoonRef.current !== null) {
         const hitIndex = bubblesRef.current.findIndex(b =>
           isHarpoonHittingBubble(harpoonRef.current!, b)
@@ -259,13 +320,13 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
         }
       }
 
-      // 무적 프레임 차감
+      // 무적 차감
       if (invincibleRef.current > 0) {
         invincibleRef.current -= 1
         setInvincibleFrames(invincibleRef.current)
       }
 
-      // 플레이어-버블 충돌 판정
+      // 플레이어-버블 충돌
       if (invincibleRef.current === 0 && livesRef.current > 0) {
         const hit = bubblesRef.current.some(b => isPlayerHitByBubble(playerXRef.current, b))
         if (hit) {
@@ -287,7 +348,7 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
 
     rafId = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(rafId)
-  }, [])
+  }, [onScoreUpdate])
 
   const isBlinking = invincibleFrames > 0 && Math.floor(invincibleFrames / 6) % 2 === 0
 
@@ -295,12 +356,21 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
     <div className="game-screen-inner">
       <div className="hud">
         <span>SCORE {String(score).padStart(5, '0')}</span>
+        <span>STAGE {stageNumber}</span>
         <div className="hud__lives">
           {Array.from({ length: lives }, (_, i) => (
             <span key={i}>♥</span>
           ))}
         </div>
       </div>
+
+      {platforms.map((p, i) => (
+        <div
+          key={i}
+          className="platform"
+          style={{ left: p.x, top: p.y, width: p.width }}
+        />
+      ))}
 
       {bubbles.map(b => {
         const { radius } = BUBBLE_CONFIG[b.size]

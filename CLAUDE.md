@@ -53,6 +53,7 @@ npm run lint
 | Phase 7 | [docs/design/phase7.md](docs/design/phase7.md) | 플레이어-버블 충돌, 라이프 감소, 무적·깜빡임 처리 |
 | Phase 8 | [docs/design/phase8.md](docs/design/phase8.md) | 스테이지 클리어·게임 오버 판정, 오버레이 화면 |
 | Phase 9 | [docs/design/phase9.md](docs/design/phase9.md) | 버블 크기별 점수, HUD 실시간 표시, 최고 점수 갱신 |
+| Phase 10 | [docs/design/phase10.md](docs/design/phase10.md) | Mission 1 3스테이지 구성, 발판-버블 충돌, 스테이지 전환 |
 
 ## 코드 구조
 
