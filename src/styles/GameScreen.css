@@ -1,0 +1,81 @@
+.game-screen-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(180deg, #0d1b2a 0%, #1b2838 70%, #1a3a1a 100%);
+  overflow: hidden;
+}
+
+/* HUD */
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f5c518;
+  letter-spacing: 1px;
+  z-index: 10;
+}
+
+.hud__lives {
+  display: flex;
+  gap: 4px;
+  font-size: 16px;
+}
+
+/* 바닥 */
+.ground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  background: #4a7c4a;
+  border-top: 2px solid #6abf6a;
+}
+
+/* 플레이어 */
+.player {
+  position: absolute;
+  width: 30px;
+  height: 50px;
+  background: #e8c84a;
+  border: 2px solid #b89a20;
+  border-radius: 4px 4px 0 0;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 20px; /* ground height */
+}
+
+.player::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #f5dca0;
+  border-radius: 50%;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ESC 안내 */
+.esc-hint {
+  position: absolute;
+  bottom: 28px;
+  right: 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 1px;
+}
