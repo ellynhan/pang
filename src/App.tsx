@@ -6,7 +6,11 @@ type Screen = 'main' | 'game'
 
 function App() {
   const [screen, setScreen] = useState<Screen>('main')
-  const [highScore] = useState(0)
+  const [highScore, setHighScore] = useState(0)
+
+  function handleScoreUpdate(score: number) {
+    setHighScore(prev => Math.max(prev, score))
+  }
 
   return (
     <div className="app">
@@ -15,7 +19,10 @@ function App() {
           <MainScreen onStart={() => setScreen('game')} highScore={highScore} />
         )}
         {screen === 'game' && (
-          <GameScreen onQuit={() => setScreen('main')} />
+          <GameScreen
+            onQuit={() => setScreen('main')}
+            onScoreUpdate={handleScoreUpdate}
+          />
         )}
       </div>
     </div>

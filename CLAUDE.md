@@ -51,6 +51,8 @@ npm run lint
 | Phase 5 | [docs/design/phase5.md](docs/design/phase5.md) | 버블 물리(중력·반사), 크기별 설정, 게임 루프 통합 |
 | Phase 6 | [docs/design/phase6.md](docs/design/phase6.md) | 작살-버블 충돌 감지, 버블 분열 및 소멸 로직 |
 | Phase 7 | [docs/design/phase7.md](docs/design/phase7.md) | 플레이어-버블 충돌, 라이프 감소, 무적·깜빡임 처리 |
+| Phase 8 | [docs/design/phase8.md](docs/design/phase8.md) | 스테이지 클리어·게임 오버 판정, 오버레이 화면 |
+| Phase 9 | [docs/design/phase9.md](docs/design/phase9.md) | 버블 크기별 점수, HUD 실시간 표시, 최고 점수 갱신 |
 
 ## 코드 구조
 

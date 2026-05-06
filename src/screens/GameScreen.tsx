@@ -3,6 +3,7 @@ import '../styles/GameScreen.css'
 
 type GameScreenProps = {
   onQuit: () => void
+  onScoreUpdate: (score: number) => void
 }
 
 type GameStatus = 'playing' | 'stageclear' | 'gameover'
@@ -52,6 +53,13 @@ const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounce
   medium: { radius: 32, speedX: 2.0, bounceVY: -13  },
   small:  { radius: 20, speedX: 2.5, bounceVY: -10  },
   tiny:   { radius: 12, speedX: 3.0, bounceVY: -7   },
+}
+
+const BUBBLE_SCORE: Record<BubbleSize, number> = {
+  large:  100,
+  medium: 200,
+  small:  400,
+  tiny:   800,
 }
 
 const NEXT_SIZE: Partial<Record<BubbleSize, BubbleSize>> = {
@@ -122,11 +130,12 @@ function isPlayerHitByBubble(px: number, b: Bubble): boolean {
   return dx * dx + dy * dy < radius * radius
 }
 
-function GameScreen({ onQuit }: GameScreenProps) {
+function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
   const [playerX, setPlayerX]                   = useState(PLAYER_INIT_X)
   const [harpoon, setHarpoon]                   = useState<Harpoon | null>(null)
   const [bubbles, setBubbles]                   = useState<Bubble[]>(INITIAL_BUBBLES)
   const [lives, setLives]                       = useState(INITIAL_LIVES)
+  const [score, setScore]                       = useState(0)
   const [invincibleFrames, setInvincibleFrames] = useState(0)
   const [gameStatus, setGameStatus]             = useState<GameStatus>('playing')
 
@@ -134,6 +143,7 @@ function GameScreen({ onQuit }: GameScreenProps) {
   const harpoonRef    = useRef<Harpoon | null>(null)
   const bubblesRef    = useRef<Bubble[]>(INITIAL_BUBBLES)
   const livesRef      = useRef(INITIAL_LIVES)
+  const scoreRef      = useRef(0)
   const invincibleRef = useRef(0)
   const gameStatusRef = useRef<GameStatus>('playing')
   const clearTimerRef = useRef(0)
@@ -211,6 +221,7 @@ function GameScreen({ onQuit }: GameScreenProps) {
         gameStatusRef.current = 'stageclear'
         setGameStatus('stageclear')
         clearTimerRef.current = CLEAR_FRAMES
+        onScoreUpdate(scoreRef.current)
       }
 
       // 클리어 타이머 (stageclear 중)
@@ -243,6 +254,8 @@ function GameScreen({ onQuit }: GameScreenProps) {
           setBubbles(bubblesRef.current)
           harpoonRef.current = null
           setHarpoon(null)
+          scoreRef.current += BUBBLE_SCORE[hit.size]
+          setScore(scoreRef.current)
         }
       }
 
@@ -261,6 +274,7 @@ function GameScreen({ onQuit }: GameScreenProps) {
           if (livesRef.current <= 0) {
             gameStatusRef.current = 'gameover'
             setGameStatus('gameover')
+            onScoreUpdate(scoreRef.current)
           } else {
             invincibleRef.current = INVINCIBLE_FRAMES
             setInvincibleFrames(INVINCIBLE_FRAMES)
@@ -280,7 +294,7 @@ function GameScreen({ onQuit }: GameScreenProps) {
   return (
     <div className="game-screen-inner">
       <div className="hud">
-        <span>SCORE 00000</span>
+        <span>SCORE {String(score).padStart(5, '0')}</span>
         <div className="hud__lives">
           {Array.from({ length: lives }, (_, i) => (
             <span key={i}>♥</span>
