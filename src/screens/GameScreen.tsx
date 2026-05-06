@@ -9,6 +9,7 @@ type GameScreenProps = {
 type GameStatus = 'playing' | 'stageclear' | 'gameover'
 
 type Harpoon = {
+  id: number
   x: number
   tipY: number
   fixed: boolean
@@ -32,6 +33,16 @@ type Platform = {
   width: number
 }
 
+type ItemType = 'doubleWire' | 'clock' | 'dynamite' | 'shield' | 'oneUp'
+
+type Item = {
+  id: number
+  type: ItemType
+  x: number
+  y: number
+  vy: number
+}
+
 type StageConfig = {
   bubbles: Omit<Bubble, 'id'>[]
   platforms: Platform[]
@@ -53,6 +64,21 @@ const FIXED_FRAMES       = 40
 const GRAVITY            = 0.25
 const INVINCIBLE_FRAMES  = 120
 const CLEAR_FRAMES       = 120
+const ITEM_DROP_CHANCE   = 0.3
+const ITEM_RADIUS        = 14
+const ITEM_FALL_SPEED    = 2
+const ITEM_FLOOR_Y       = GAME_HEIGHT - GROUND_HEIGHT - ITEM_RADIUS
+const CLOCK_FRAMES       = 120
+
+const ITEM_TYPES: ItemType[] = ['doubleWire', 'clock', 'dynamite', 'shield', 'oneUp']
+
+const ITEM_SYMBOL: Record<ItemType, string> = {
+  doubleWire: '✦',
+  clock:      '⏱',
+  dynamite:   '✸',
+  shield:     '◈',
+  oneUp:      '♥',
+}
 
 const BUBBLE_CONFIG: Record<BubbleSize, { radius: number; speedX: number; bounceVY: number }> = {
   large:  { radius: 48, speedX: 1.5, bounceVY: -15  },
@@ -132,7 +158,6 @@ function updateBubble(b: Bubble, platforms: Platform[]): Bubble {
 
   if (y >= floorY) { y = floorY; vy = bounceVY }
 
-  // 발판 충돌 (위에서 내려올 때만)
   for (const p of platforms) {
     if (
       b.y + radius < p.y  &&
@@ -180,54 +205,96 @@ function isPlayerHitByBubble(px: number, b: Bubble): boolean {
   return dx * dx + dy * dy < radius * radius
 }
 
+function isPlayerPickingItem(px: number, item: Item): boolean {
+  const cx = Math.max(px, Math.min(px + PLAYER_WIDTH, item.x))
+  const cy = Math.max(PLAYER_TOP_Y, Math.min(PLAYER_TOP_Y + PLAYER_HEIGHT, item.y))
+  const dx = cx - item.x
+  const dy = cy - item.y
+  return dx * dx + dy * dy < ITEM_RADIUS * ITEM_RADIUS
+}
+
 const idCounter = { current: 100 }
 
 function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
   const [playerX, setPlayerX]                   = useState(PLAYER_INIT_X)
-  const [harpoon, setHarpoon]                   = useState<Harpoon | null>(null)
+  const [harpoons, setHarpoons]                 = useState<Harpoon[]>([])
   const [bubbles, setBubbles]                   = useState<Bubble[]>(() => makeBubbles(STAGES[0].bubbles, idCounter))
   const [platforms, setPlatforms]               = useState<Platform[]>(STAGES[0].platforms)
+  const [items, setItems]                       = useState<Item[]>([])
   const [lives, setLives]                       = useState(INITIAL_LIVES)
   const [score, setScore]                       = useState(0)
   const [stageNumber, setStageNumber]           = useState(1)
   const [invincibleFrames, setInvincibleFrames] = useState(0)
   const [gameStatus, setGameStatus]             = useState<GameStatus>('playing')
 
-  const playerXRef    = useRef(PLAYER_INIT_X)
-  const harpoonRef    = useRef<Harpoon | null>(null)
-  const bubblesRef    = useRef<Bubble[]>(makeBubbles(STAGES[0].bubbles, idCounter))
-  const platformsRef  = useRef<Platform[]>(STAGES[0].platforms)
-  const livesRef      = useRef(INITIAL_LIVES)
-  const scoreRef      = useRef(0)
-  const stageRef      = useRef(1)
-  const invincibleRef = useRef(0)
-  const gameStatusRef = useRef<GameStatus>('playing')
-  const clearTimerRef = useRef(0)
-  const keysRef       = useRef<Set<string>>(new Set())
-  const nextIdRef     = useRef(200)
+  const playerXRef      = useRef(PLAYER_INIT_X)
+  const harpoonsRef     = useRef<Harpoon[]>([])
+  const bubblesRef      = useRef<Bubble[]>(makeBubbles(STAGES[0].bubbles, idCounter))
+  const platformsRef    = useRef<Platform[]>(STAGES[0].platforms)
+  const itemsRef        = useRef<Item[]>([])
+  const livesRef        = useRef(INITIAL_LIVES)
+  const scoreRef        = useRef(0)
+  const stageRef        = useRef(1)
+  const invincibleRef   = useRef(0)
+  const gameStatusRef   = useRef<GameStatus>('playing')
+  const clearTimerRef   = useRef(0)
+  const clockFramesRef  = useRef(0)
+  const doubleWireRef   = useRef(false)
+  const shieldRef       = useRef(false)
+  const keysRef         = useRef<Set<string>>(new Set())
+  const nextIdRef       = useRef(200)
+
+  function fireHarpoon() {
+    if (gameStatusRef.current !== 'playing') return
+    if (doubleWireRef.current) {
+      if (harpoonsRef.current.length > 0) return
+      const left: Harpoon  = { id: nextIdRef.current++, x: playerXRef.current + 6,                   tipY: PLAYER_TOP_Y, fixed: false, fixedFrames: 0 }
+      const right: Harpoon = { id: nextIdRef.current++, x: playerXRef.current + PLAYER_WIDTH - 6,     tipY: PLAYER_TOP_Y, fixed: false, fixedFrames: 0 }
+      harpoonsRef.current = [left, right]
+    } else {
+      if (harpoonsRef.current.length > 0) return
+      const h: Harpoon = { id: nextIdRef.current++, x: playerXRef.current + PLAYER_WIDTH / 2, tipY: PLAYER_TOP_Y, fixed: false, fixedFrames: 0 }
+      harpoonsRef.current = [h]
+    }
+    setHarpoons([...harpoonsRef.current])
+  }
+
+  function applyItem(type: ItemType) {
+    if (type === 'doubleWire') { doubleWireRef.current = true }
+    if (type === 'clock')      { clockFramesRef.current = CLOCK_FRAMES }
+    if (type === 'shield')     { shieldRef.current = true }
+    if (type === 'oneUp') {
+      livesRef.current += 1
+      setLives(livesRef.current)
+    }
+    if (type === 'dynamite') {
+      const pts = bubblesRef.current.reduce((sum, b) => sum + BUBBLE_SCORE[b.size], 0)
+      scoreRef.current += pts
+      setScore(scoreRef.current)
+      bubblesRef.current = []
+      setBubbles([])
+      itemsRef.current = []
+      setItems([])
+    }
+  }
+
+  function resetStageEffects() {
+    doubleWireRef.current  = false
+    clockFramesRef.current = 0
+    shieldRef.current      = false
+    harpoonsRef.current    = []
+    setHarpoons([])
+    itemsRef.current = []
+    setItems([])
+  }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === ' ') e.preventDefault()
-
-      if (e.key === 'Enter' && gameStatusRef.current === 'gameover') {
-        onQuit()
-        return
-      }
+      if (e.key === 'Enter' && gameStatusRef.current === 'gameover') { onQuit(); return }
       if (e.key === 'Escape') { onQuit(); return }
-
       keysRef.current.add(e.key)
-
-      if (e.key === ' ' && harpoonRef.current === null && gameStatusRef.current === 'playing') {
-        const h: Harpoon = {
-          x: playerXRef.current + PLAYER_WIDTH / 2,
-          tipY: PLAYER_TOP_Y,
-          fixed: false,
-          fixedFrames: 0,
-        }
-        harpoonRef.current = h
-        setHarpoon(h)
-      }
+      if (e.key === ' ') fireHarpoon()
     }
     function onKeyUp(e: KeyboardEvent) {
       keysRef.current.delete(e.key)
@@ -260,16 +327,30 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
       }
 
       // 작살 업데이트
-      if (harpoonRef.current !== null) {
-        const next = updateHarpoon(harpoonRef.current)
-        harpoonRef.current = next
-        setHarpoon(next)
+      const nextHarpoons = harpoonsRef.current
+        .map(h => updateHarpoon(h))
+        .filter((h): h is Harpoon => h !== null)
+      harpoonsRef.current = nextHarpoons
+      setHarpoons([...nextHarpoons])
+
+      // 버블 업데이트 (시계 효과 중 정지)
+      if (clockFramesRef.current > 0) {
+        clockFramesRef.current -= 1
+      } else {
+        const nextBubbles = bubblesRef.current.map(b => updateBubble(b, platformsRef.current))
+        bubblesRef.current = nextBubbles
+        setBubbles(nextBubbles)
       }
 
-      // 버블 업데이트 (발판 포함)
-      const nextBubbles = bubblesRef.current.map(b => updateBubble(b, platformsRef.current))
-      bubblesRef.current = nextBubbles
-      setBubbles(nextBubbles)
+      // 아이템 낙하 업데이트
+      const nextItems = itemsRef.current
+        .map(item => {
+          const y = item.y + item.vy
+          return y >= ITEM_FLOOR_Y ? null : { ...item, y }
+        })
+        .filter((item): item is Item => item !== null)
+      itemsRef.current = nextItems
+      setItems([...nextItems])
 
       // 스테이지 클리어
       if (gameStatusRef.current === 'playing' && bubblesRef.current.length === 0) {
@@ -291,10 +372,9 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
           platformsRef.current = cfg.platforms
           setBubbles(bubblesRef.current)
           setPlatforms(platformsRef.current)
-          harpoonRef.current = null
-          setHarpoon(null)
           playerXRef.current = PLAYER_INIT_X
           setPlayerX(PLAYER_INIT_X)
+          resetStageEffects()
           gameStatusRef.current = 'playing'
           setGameStatus('playing')
         }
@@ -303,20 +383,26 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
       }
 
       // 작살-버블 충돌
-      if (harpoonRef.current !== null) {
-        const hitIndex = bubblesRef.current.findIndex(b =>
-          isHarpoonHittingBubble(harpoonRef.current!, b)
-        )
+      for (const harpoon of harpoonsRef.current) {
+        const hitIndex = bubblesRef.current.findIndex(b => isHarpoonHittingBubble(harpoon, b))
         if (hitIndex !== -1) {
           const hit     = bubblesRef.current[hitIndex]
           const rest    = bubblesRef.current.filter((_, i) => i !== hitIndex)
           const spawned = splitBubble(hit, () => nextIdRef.current++)
           bubblesRef.current = [...rest, ...spawned]
           setBubbles(bubblesRef.current)
-          harpoonRef.current = null
-          setHarpoon(null)
+          harpoonsRef.current = harpoonsRef.current.filter(h => h.id !== harpoon.id)
+          setHarpoons([...harpoonsRef.current])
           scoreRef.current += BUBBLE_SCORE[hit.size]
           setScore(scoreRef.current)
+
+          // tiny 소멸 시 아이템 드롭
+          if (hit.size === 'tiny' && Math.random() < ITEM_DROP_CHANCE) {
+            const type = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)]
+            const newItem: Item = { id: nextIdRef.current++, type, x: hit.x, y: hit.y, vy: ITEM_FALL_SPEED }
+            itemsRef.current = [...itemsRef.current, newItem]
+            setItems([...itemsRef.current])
+          }
         }
       }
 
@@ -330,17 +416,36 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
       if (invincibleRef.current === 0 && livesRef.current > 0) {
         const hit = bubblesRef.current.some(b => isPlayerHitByBubble(playerXRef.current, b))
         if (hit) {
-          livesRef.current -= 1
-          setLives(livesRef.current)
-          if (livesRef.current <= 0) {
-            gameStatusRef.current = 'gameover'
-            setGameStatus('gameover')
-            onScoreUpdate(scoreRef.current)
-          } else {
+          if (shieldRef.current) {
+            shieldRef.current = false
             invincibleRef.current = INVINCIBLE_FRAMES
             setInvincibleFrames(INVINCIBLE_FRAMES)
+          } else {
+            livesRef.current -= 1
+            setLives(livesRef.current)
+            if (livesRef.current <= 0) {
+              gameStatusRef.current = 'gameover'
+              setGameStatus('gameover')
+              onScoreUpdate(scoreRef.current)
+            } else {
+              invincibleRef.current = INVINCIBLE_FRAMES
+              setInvincibleFrames(INVINCIBLE_FRAMES)
+            }
           }
         }
+      }
+
+      // 플레이어-아이템 충돌
+      const pickedIds = new Set<number>()
+      for (const item of itemsRef.current) {
+        if (isPlayerPickingItem(playerXRef.current, item)) {
+          pickedIds.add(item.id)
+          applyItem(item.type)
+        }
+      }
+      if (pickedIds.size > 0) {
+        itemsRef.current = itemsRef.current.filter(i => !pickedIds.has(i.id))
+        setItems([...itemsRef.current])
       }
 
       rafId = requestAnimationFrame(loop)
@@ -365,11 +470,7 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
       </div>
 
       {platforms.map((p, i) => (
-        <div
-          key={i}
-          className="platform"
-          style={{ left: p.x, top: p.y, width: p.width }}
-        />
+        <div key={i} className="platform" style={{ left: p.x, top: p.y, width: p.width }} />
       ))}
 
       {bubbles.map(b => {
@@ -378,31 +479,30 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
           <div
             key={b.id}
             className={`bubble bubble--${b.size}`}
-            style={{
-              left:   b.x - radius,
-              top:    b.y - radius,
-              width:  radius * 2,
-              height: radius * 2,
-            }}
+            style={{ left: b.x - radius, top: b.y - radius, width: radius * 2, height: radius * 2 }}
           />
         )
       })}
 
-      {harpoon && (
+      {harpoons.map(h => (
         <div
-          className={`harpoon${harpoon.fixed ? ' harpoon--fixed' : ''}`}
-          style={{
-            left:   harpoon.x - HARPOON_WIDTH / 2,
-            top:    harpoon.tipY,
-            height: PLAYER_TOP_Y - harpoon.tipY,
-          }}
+          key={h.id}
+          className={`harpoon${h.fixed ? ' harpoon--fixed' : ''}`}
+          style={{ left: h.x - HARPOON_WIDTH / 2, top: h.tipY, height: PLAYER_TOP_Y - h.tipY }}
         />
-      )}
+      ))}
 
-      <div
-        className="player"
-        style={{ left: playerX, opacity: isBlinking ? 0.25 : 1 }}
-      />
+      {items.map(item => (
+        <div
+          key={item.id}
+          className={`item item--${item.type}`}
+          style={{ left: item.x - ITEM_RADIUS, top: item.y - ITEM_RADIUS }}
+        >
+          {ITEM_SYMBOL[item.type]}
+        </div>
+      ))}
+
+      <div className="player" style={{ left: playerX, opacity: isBlinking ? 0.25 : 1 }} />
 
       <div className="ground" />
 
