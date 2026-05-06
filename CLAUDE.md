@@ -47,6 +47,7 @@ npm run lint
 | Phase 1 | [docs/design/phase1.md](docs/design/phase1.md) | 메인 화면, 메뉴 버튼, 화면 전환 상태 설계 |
 | Phase 2 | [docs/design/phase2.md](docs/design/phase2.md) | 게임 화면 진입, 플레이어 표시, HUD 기초 설계 |
 | Phase 3 | [docs/design/phase3.md](docs/design/phase3.md) | 플레이어 좌우 이동, 벽 충돌, 게임 루프 설계 |
+| Phase 4 | [docs/design/phase4.md](docs/design/phase4.md) | 작살 발사, 천장 고정, 소멸 타이머 설계 |
 
 ## 코드 구조
 

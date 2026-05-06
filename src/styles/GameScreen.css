@@ -67,6 +67,24 @@
   transform: translateX(-50%);
 }
 
+/* 작살 */
+.harpoon {
+  position: absolute;
+  width: 4px;
+  background: #ffffff;
+  z-index: 5;
+}
+
+.harpoon--fixed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 20px;
+  height: 3px;
+  background: #ffffff;
+}
+
 /* ESC 안내 */
 .esc-hint {
   position: absolute;
