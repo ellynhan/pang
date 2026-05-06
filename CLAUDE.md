@@ -35,6 +35,16 @@ npm run lint
 | [docs/FEATURES/main.md](docs/FEATURES/main.md) | 메인 화면 구성 및 화면 전환 흐름 |
 | [docs/FEATURES/game_rule.md](docs/FEATURES/game_rule.md) | 버블 시스템, 아이템, 점수 등 상세 게임 룰 |
 | [docs/FEATURES/mission1.md](docs/FEATURES/mission1.md) | Mission 1 스테이지별 난이도 및 구성 |
+| [docs/PLAN.md](docs/PLAN.md) | Phase별 개발 목표 및 계획 |
+
+## Phase 설계 문서
+
+각 Phase의 구현 방법, 컴포넌트 설계, 파일 구조 등 기술 설계 내용을 담습니다.
+설계 문서는 `docs/design/` 디렉토리에 Phase별로 관리합니다.
+
+| Phase | 파일 | 핵심 내용 |
+|-------|------|-----------|
+| Phase 1 | [docs/design/phase1.md](docs/design/phase1.md) | 메인 화면, 메뉴 버튼, 화면 전환 상태 설계 |
 
 ## 코드 구조
 

@@ -6,4 +6,20 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
+  background: #000;
+}
+
+.app {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #000;
+}
+
+.game-screen {
+  width: 480px;
+  height: 640px;
+  position: relative;
+  overflow: hidden;
 }
