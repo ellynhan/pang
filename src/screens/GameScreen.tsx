@@ -513,13 +513,34 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
       )}
 
       {gameStatus === 'gameover' && (
-        <div className="overlay overlay--gameover">
+        <div className="overlay overlay--gameover" onClick={onQuit}>
           <p className="overlay__title">GAME OVER</p>
-          <p className="overlay__hint">PRESS ENTER</p>
+          <p className="overlay__hint">PRESS ENTER / TAP</p>
         </div>
       )}
 
-      <span className="esc-hint">ESC: 타이틀</span>
+      <span className="esc-hint" onClick={onQuit}>ESC: 타이틀</span>
+
+      <div className="touch-controls">
+        <div className="touch-btn-group">
+          <button
+            className="touch-btn"
+            onPointerDown={e => { e.preventDefault(); keysRef.current.add('ArrowLeft') }}
+            onPointerUp={() => keysRef.current.delete('ArrowLeft')}
+            onPointerLeave={() => keysRef.current.delete('ArrowLeft')}
+          >←</button>
+          <button
+            className="touch-btn"
+            onPointerDown={e => { e.preventDefault(); keysRef.current.add('ArrowRight') }}
+            onPointerUp={() => keysRef.current.delete('ArrowRight')}
+            onPointerLeave={() => keysRef.current.delete('ArrowRight')}
+          >→</button>
+        </div>
+        <button
+          className="touch-btn touch-btn--fire"
+          onPointerDown={e => { e.preventDefault(); fireHarpoon() }}
+        >FIRE</button>
+      </div>
     </div>
   )
 }
