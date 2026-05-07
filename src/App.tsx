@@ -4,8 +4,10 @@ import MainScreen from './screens/MainScreen'
 
 type Screen = 'main' | 'game'
 
-const GAME_W = 480
-const GAME_H = 640
+const GAME_W  = 480
+const GAME_H  = 640
+const CTRL_H  = 120
+const TOTAL_H = GAME_H + CTRL_H
 
 function App() {
   const [screen, setScreen] = useState<Screen>('main')
@@ -14,7 +16,7 @@ function App() {
 
   useEffect(() => {
     function updateScale() {
-      setScale(Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H))
+      setScale(Math.min(window.innerWidth / GAME_W, window.innerHeight / TOTAL_H))
     }
     updateScale()
     window.addEventListener('resize', updateScale)
@@ -25,13 +27,12 @@ function App() {
     setHighScore(prev => Math.max(prev, score))
   }
 
+  const contentH = screen === 'game' ? TOTAL_H : GAME_H
+
   return (
     <div className="app">
-      <div style={{ width: GAME_W * scale, height: GAME_H * scale, position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
-        <div
-          className="game-screen"
-          style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
-        >
+      <div style={{ width: GAME_W * scale, height: contentH * scale, overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: GAME_W, height: contentH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           {screen === 'main' && (
             <MainScreen onStart={() => setScreen('game')} highScore={highScore} />
           )}
