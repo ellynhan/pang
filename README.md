@@ -171,7 +171,9 @@ npm run build
 
 ## 스크린샷
 
-> 스크린샷은 추후 추가 예정입니다.
+| 타이틀 화면 | 게임 플레이 화면 |
+|:-----------:|:---------------:|
+| ![타이틀 화면](docs/screenshots/main-screen.png) | ![게임 플레이 화면](docs/screenshots/gameplay.png) |
 
 ---
 

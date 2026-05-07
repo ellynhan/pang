@@ -6,7 +6,20 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\reviewer\\\\pang\" -Recurse -Exclude \"node_modules\" -Force | Where-Object { $_.PSIsContainer -eq $false } | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\reviewer\\\\pang\\\\\"\\), \"\" } | Sort-Object)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\reviewer\\\\pang\" -Exclude \"node_modules\" -Recurse -Force | Where-Object { -not $_.PSIsContainer } | Select-Object @{Name=\"RelativePath\";Expression={$_.FullName -replace [regex]::Escape\\(\"C:\\\\reviewer\\\\pang\\\\\"\\), \"\"}} | Where-Object { $_.RelativePath -notmatch \"node_modules\" })",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "WebSearch",
+      "Bash(npm run *)",
+      "Bash(git fetch *)",
+      "Bash(git push *)",
+      "Bash(gh run *)",
+      "PowerShell(gh run *)",
+      "Bash(claude mcp *)",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click"
     ]
   }
 }
