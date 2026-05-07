@@ -243,6 +243,35 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
   const shieldRef       = useRef(false)
   const keysRef         = useRef<Set<string>>(new Set())
   const nextIdRef       = useRef(200)
+  const dragStartXRef   = useRef<number | null>(null)
+
+  const DRAG_DEAD_ZONE = 20
+
+  function handleDragStart(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragStartXRef.current = e.clientX
+  }
+
+  function handleDragMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStartXRef.current === null) return
+    const delta = e.clientX - dragStartXRef.current
+    if (delta < -DRAG_DEAD_ZONE) {
+      keysRef.current.add('ArrowLeft')
+      keysRef.current.delete('ArrowRight')
+    } else if (delta > DRAG_DEAD_ZONE) {
+      keysRef.current.add('ArrowRight')
+      keysRef.current.delete('ArrowLeft')
+    } else {
+      keysRef.current.delete('ArrowLeft')
+      keysRef.current.delete('ArrowRight')
+    }
+  }
+
+  function handleDragEnd() {
+    dragStartXRef.current = null
+    keysRef.current.delete('ArrowLeft')
+    keysRef.current.delete('ArrowRight')
+  }
 
   function fireHarpoon() {
     if (gameStatusRef.current !== 'playing') return
@@ -458,7 +487,13 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
   const isBlinking = invincibleFrames > 0 && Math.floor(invincibleFrames / 6) % 2 === 0
 
   return (
-    <div className="game-screen-inner">
+    <div
+      className="game-screen-inner"
+      onPointerDown={handleDragStart}
+      onPointerMove={handleDragMove}
+      onPointerUp={handleDragEnd}
+      onPointerCancel={handleDragEnd}
+    >
       <div className="hud">
         <span>SCORE {String(score).padStart(5, '0')}</span>
         <span>STAGE {stageNumber}</span>
@@ -522,23 +557,9 @@ function GameScreen({ onQuit, onScoreUpdate }: GameScreenProps) {
       <span className="esc-hint" onClick={onQuit}>ESC: 타이틀</span>
 
       <div className="touch-controls">
-        <div className="touch-btn-group">
-          <button
-            className="touch-btn"
-            onPointerDown={e => { e.preventDefault(); keysRef.current.add('ArrowLeft') }}
-            onPointerUp={() => keysRef.current.delete('ArrowLeft')}
-            onPointerLeave={() => keysRef.current.delete('ArrowLeft')}
-          >←</button>
-          <button
-            className="touch-btn"
-            onPointerDown={e => { e.preventDefault(); keysRef.current.add('ArrowRight') }}
-            onPointerUp={() => keysRef.current.delete('ArrowRight')}
-            onPointerLeave={() => keysRef.current.delete('ArrowRight')}
-          >→</button>
-        </div>
         <button
           className="touch-btn touch-btn--fire"
-          onPointerDown={e => { e.preventDefault(); fireHarpoon() }}
+          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); fireHarpoon() }}
         >FIRE</button>
       </div>
     </div>
